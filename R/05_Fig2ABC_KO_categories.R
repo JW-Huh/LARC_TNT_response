@@ -30,7 +30,14 @@
 ##     (3,509 KOs); of these, the 2,127 KOs with a category assignment form the
 ##     analysis background.
 ##   * KO test: two-sided Wilcoxon rank-sum test pCR vs non-pCR on CPM;
-##     log2FC = log2(mean_pCR / mean_nonpCR).
+##     log2FC = log2(mean_pCR / mean_nonpCR).  stats::wilcox.test with its
+##     default `exact = NULL`: exact when there are no ties, otherwise the
+##     normal approximation with continuity correction.  Supplementary Table 2E
+##     was generated with the exact *conditional* test (ties handled by the
+##     permutation distribution of the rank sum, as in coin::wilcox_test with
+##     distribution = "exact"); the two agree exactly for KOs without ties and
+##     differ slightly for the few tied KOs (e.g. K02406 flagellin: 0.0069 here
+##     vs 0.0054 in the table).  Neither the 2C KO set nor its stars change.
 ##   * Category score (2B): for a category with n KOs, the fraction of its KOs
 ##     with P below each of eight thresholds (0.005 ... 0.5) is averaged
 ##     (= mean empirical CDF of the P values at those thresholds).  The same
@@ -44,6 +51,8 @@
 ##   * Heatmap (2C): KOs with P < 0.05 (duplicates collapsed), row z-scores of
 ##     CPM, rows clustered by Manhattan distance / Ward.D2, samples ordered
 ##     within each response group by Euclidean / complete clustering.
+##     Significance stars in the P-value annotation: *** P < 0.005, ** P < 0.01
+##     (the thresholds of the submitted panel and its legend).
 ##
 ##  R PACKAGES  ggplot2, ComplexHeatmap 2.18.0, circlize, dplyr
 ## =============================================================================
@@ -233,8 +242,10 @@ save_panel(p_2b, "Fig2B_KO_category_enrichment", width = 4.0, height = 5.2)
 ## ---- 5. Figure 2C: heatmap of response-associated KOs -------------------------------
 
 heat_p_cut <- 0.05                                                     # <-- KO inclusion threshold
+star_cuts  <- c(0.005, 0.01); star_symbols <- c("***", "**")          # <-- star thresholds (*** P < 0.005, ** P < 0.01)
 selected <- ko_results %>% filter(P < heat_p_cut) %>% distinct(KO, .keep_all = TRUE)
 cat("KOs with P <", heat_p_cut, ":", nrow(selected), "\n")
+cat("Stars:", paste(sprintf("%s %s", selected$KO, p_stars(selected$P, star_cuts, star_symbols))[selected$P < max(star_cuts)], collapse = ", "), "\n")
 
 z <- t(scale(t(ko_cpm[selected$KO, ])))                                # row z-scores of CPM
 rownames(z) <- paste0(selected$KO, ": ", sub(" \\[EC:.*\\]$", "", selected$KO_name))   # "K03736: ethanolamine ammonia-lyase ..." 
@@ -249,7 +260,7 @@ lfc[!is.finite(lfc)] <- sign(lfc[!is.finite(lfc)]) * max(abs(lfc[is.finite(lfc)]
 
 right <- rowAnnotation(
   `p-value` = anno_simple(-log10(selected$P), col = colorRamp2(c(1, 2.5), c("white", "#2166AC")),
-                          pch = p_stars(selected$P, c(0.001, 0.01), c("***", "**")),
+                          pch = p_stars(selected$P, star_cuts, star_symbols),
                           pt_gp = gpar(col = "white", fontsize = 8), gp = gpar(col = "grey40", lwd = 0.5),
                           width = unit(3.5, "mm")),
   LFC = anno_simple(lfc, col = colorRamp2(c(-2, 0, 4), c("#D1606E", "white", "#57AD93")),

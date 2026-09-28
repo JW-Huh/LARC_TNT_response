@@ -105,7 +105,7 @@ that turns the full computation back on (see section 5).
 | `16_SFig5B_Immune_module_correlations.R` | S5B | immune-module scores vs metabolites: Pearson / Spearman / partial Spearman | cache of 14, `patients_covariates.csv` |
 | `17_Fig4E_Species_metabolite_host_triads.R` | 4E | six species–metabolite–gene triads | cache of 14, `legacy_paired_subjects.csv` |
 | `18_Fig5_Four_omics_preparation.R` | – | matched species / KO / metabolite / host blocks, PCoA scores for all six layer pairs | metagenome + metabolome + `tumor_rna_counts.csv` |
-| `19_Fig5A_Procrustes_GPA.R` | 5A | pairwise Procrustes / protest and generalized Procrustes analysis with a patient-level permutation test | cache of 18 |
+| `19_Fig5A_Procrustes_GPA.R` | 5A | pairwise Procrustes and generalized Procrustes analysis, both tested with the same patient-block permutation scheme (unrestricted PROTEST P kept as `P_unrestricted`) | cache of 18 |
 | `20_Fig5_MOFA_preparation_and_training.R` | – | rebuilds the MOFA views, verifies them against the frozen training input, loads the frozen model (`refit_mofa <- TRUE` retrains with MOFA2) | cache of 18, `mofa_*_frozen.rds` |
 | `21_Fig5BCD_MOFA_response_associations.R` | 5B, 5C, 5D | factor–response associations (mixed model, Hedges' g, patient permutations), variance explained, Factor 7 × Factor 11 plane | cache of 20 |
 | `22_Fig5E_SFig6_MOFA_feature_network.R` | 5E, S6 | Factor 7 feature loadings; adjusted partial-correlation network of those features | cache of 20 + 21, `patients_covariates.csv` (S6) |
@@ -216,8 +216,10 @@ Every numeric result printed in a panel or quoted in the text was checked:
   EC 2.3.1.9 rho 0.52 / P 0.020 (3D), bile-acid index P values (S3B);
 * random-forest AUCs (S4B), the 22 gene-set statistics (4B), Fig 4C stars,
   the 4D / 4E node and edge sets;
-* pairwise Procrustes r 0.715 / 0.487 / 0.440 with their intervals and P
-  values, GPA agreement 0.774, mean pairwise r 0.502, P 0.0007 (5A); MOFA
+* pairwise Procrustes r 0.715 / 0.487 / 0.440 with their intervals and
+  unrestricted PROTEST P values (0.0001 / 0.0015 / 0.1403, column
+  `P_unrestricted` in `Fig5A_pairwise_procrustes.csv`), GPA agreement 0.774,
+  mean pairwise r 0.502, P 0.0007 (5A); MOFA
   Factor 7 P 0.011 (BH q 0.154, max-F P 0.163), Factor 11 P 0.083, plane
   R² 0.157 / P 0.020 (5B–D); joint R² 0.661; the 12 Factor 7 features and
   their loadings (5E); TJP1 Pearson r 0.48, Spearman 0.60, partial 0.62 (5F).
@@ -227,13 +229,30 @@ sample order of the original run is known (see `AnalysisOrder` /
 `EnrolmentOrder`, section 4). The three Figure 5F permutation P values
 (999 permutations) agree with the submission within ±0.002.
 
+Per-feature Wilcoxon P values (2A/2C, S2) are computed with
+`stats::wilcox.test` (exact when there are no ties, otherwise the normal
+approximation with continuity correction). Supplementary Table 2 was
+generated with the exact conditional test, which handles ties through the
+permutation distribution of the rank sum (`coin::wilcox_test(distribution =
+"exact")`); the two agree exactly for features without ties and differ
+slightly for tied features (e.g. K02406 flagellin, baseline: 0.0069 here vs
+0.0054 in Table S2E). Feature selections and significance stars are the same
+under both variants.
+
+Changes made during revision (the code now differs from the submitted PDF
+on purpose):
+
+| panel | change | where |
+|---|---|---|
+| 2C | significance stars use the thresholds of the submitted panel and legend (`***` P < 0.005, `**` P < 0.01); the first public release used 0.001 / 0.01, which showed K13542 and K20491 as `**` | 05, `star_cuts` |
+| 5A insets | the pairwise Procrustes P values are from the patient-block permutation test (patients exchanged within identical visit-availability patterns, 9,999 permutations), the same null as the GPA test, instead of unrestricted PROTEST permutations; r, intervals and the GPA statistics are unchanged, and the unrestricted P is kept in the table | header of 19 |
+
 Known, documented differences from the submitted PDF panels:
 
 | panel | difference | where explained |
 |---|---|---|
 | 1A, 3E, S4A | the timeline, the tryptophan-pathway scheme and the workflow scheme are drawn with plain boxes; the submitted versions were finished in Illustrator | header of 00 |
 | S1C | the submitted legend lists three families (Enterobacteriaceae, Lactobacillaceae, Selenomonadaceae) that are not in the baseline top-10 (legend artefact of the after-RT panel); reproduced optionally | 02, `s1c_legend_extra` |
-| 2C | two KOs (K13542, K20491) show `**` here where the submitted panel shows `***` — P just around 0.001 depending on the Wilcoxon variant | header of 05 |
 | S2A | the colour bar is labelled log10 ratio (the submitted legend said Log2FC; the values are log10) | header of 06b |
 | 1G, 4A, S6 | network node positions come from a seeded force-directed layout; the submitted panels were arranged by hand (1G reproduces the Cytoscape coordinates where available) | 03, 12, 22 |
 | S5B | lithocholic acid is excluded explicitly: in the laboratory table used for the submission its column was misspelled (`Lithocholi_acid`) and therefore not recognised as a bile acid; the curated input corrects the name | 16, `excluded_metabolites` |

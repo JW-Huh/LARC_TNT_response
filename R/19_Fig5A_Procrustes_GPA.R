@@ -18,9 +18,15 @@
 ##  METHODS
 ##   * Pairwise: symmetric Procrustes rotation (vegan::procrustes) of the first
 ##     <= 5 PCoA axes of the two layers on their overlapping samples;
-##     correlation r = sqrt(1 - m^2); significance by PROTEST (9,999 unrestricted
-##     sample permutations, vegan::protest); 95 % interval = r +/- 1.96 x SD of r
-##     over 999 patient-level bootstrap resamples (normal approximation).
+##     correlation r = sqrt(1 - m^2).  Significance by a patient-block
+##     permutation test (9,999 permutations): whole patients (with all their
+##     visits) are exchanged only among patients with the same
+##     visit-availability pattern, so baseline and after-RT samples of one
+##     patient stay together - the same null as the GPA test below.  The
+##     unrestricted PROTEST P (vegan::protest, 9,999 sample permutations) is
+##     kept in the table as `P_unrestricted` for reference.  95 % interval =
+##     r +/- 1.96 x SD of r over 999 patient-level bootstrap resamples (normal
+##     approximation).
 ##   * Four-layer GPA (22 samples with all layers): configurations centred and
 ##     scaled to unit total variance, iteratively rotated to their mean
 ##     (consensus) until the residual changes < 1e-10.  Agreement = mean cosine
@@ -28,6 +34,13 @@
 ##     permutation P (9,999) permutes patients within identical
 ##     visit-availability patterns for layers 2-4 and compares the total
 ##     residual sum of squares.
+##
+##  CHANGE LOG
+##   * v2 (revision): the pairwise P values use the patient-block permutation
+##     instead of unrestricted PROTEST permutations, for consistency with the
+##     GPA test and with the repeated-measures design.  r and the bootstrap
+##     intervals are unchanged; the original unrestricted P is reported as
+##     `P_unrestricted` (0.0001 / 0.0015 / 0.1403 in the submitted panel).
 ##
 ##  R PACKAGES  vegan, ggplot2, patchwork
 ## =============================================================================
@@ -48,6 +61,19 @@ legend_order <- c("Species", "Metabolite", "KEGG ortholog", "Host RNA-seq")     
 layer_colors <- c(Species = "#79B3A3", `KEGG ortholog` = "#D8A46F", Metabolite = "#82A8C7", `Host RNA-seq` = "#B29AC6")
 layer_shapes <- c(Species = 21, `KEGG ortholog` = 24, Metabolite = 22, `Host RNA-seq` = 23)
 
+## Patient-block permutation (shared by the pairwise tests and the GPA test):
+## patients are exchanged only within identical visit-availability patterns
+## ("Before", "Before|Ongoing", "Ongoing"), so every visit of a patient moves
+## together and the number of baseline / after-RT rows stays fixed.  Returns
+## the permuted row index for a sample table `meta` (SubjectID, Timepoint).
+permute_rows <- function(meta) {
+  pattern <- tapply(meta$Timepoint, meta$SubjectID, function(z) paste(sort(unique(z)), collapse = "|"))
+  mapping <- setNames(names(pattern), names(pattern))
+  for (p in unique(pattern)) { s <- names(pattern)[pattern == p]; mapping[s] <- sample(s) }
+  match(paste(mapping[meta$SubjectID], meta$Timepoint), paste(meta$SubjectID, meta$Timepoint))
+}
+procrustes_r <- function(x, y) sqrt(max(0, 1 - procrustes(x, y, symmetric = TRUE)$ss))
+
 
 ## ---- 1. Pairwise Procrustes: species-KO, KO-metabolite, metabolite-host -------------------
 
@@ -61,20 +87,34 @@ for (j in seq_along(pair_names)) {
   ids <- pair$sample_meta$SampleID
   k <- min(5, ncol(x), ncol(y), length(ids) - 1)
   x <- x[ids, 1:k]; y <- y[ids, 1:k]
+  meta_pair <- pair$sample_meta                                  # rows in the order of `ids`
+  stopifnot(identical(as.character(meta_pair$SampleID), as.character(ids)))
 
   fit <- procrustes(x, y, symmetric = TRUE)
+  r_obs <- procrustes_r(x, y)
+
+  ## unrestricted PROTEST (reference only; the P of the submitted panel)
   set.seed(20260718 + pair_seed_index[j] * 100 + 1)
-  test <- protest(x, y, permutations = n_protest, symmetric = TRUE)
+  test_free <- protest(x, y, permutations = n_protest, symmetric = TRUE)
+  stopifnot(abs(test_free$t0 - r_obs) < 1e-10)
+
+  ## patient-block permutation test (reported P): permute the rows of y,
+  ## whole patients within identical visit-availability patterns
+  set.seed(20260718 + pair_seed_index[j] * 100 + 2)
+  perm_r <- replicate(n_protest, procrustes_r(x, y[permute_rows(meta_pair), , drop = FALSE]))
+  p_block <- (1 + sum(perm_r >= r_obs)) / (1 + n_protest)
 
   ## patient-level bootstrap of r
-  patient <- pair$sample_meta$SubjectID
+  patient <- meta_pair$SubjectID
   set.seed(20267718 + pair_seed_index[j])
   boot_r <- replicate(n_boot, {
     rows <- unlist(lapply(sample(unique(patient), replace = TRUE), function(id) which(patient == id)))
-    sqrt(max(0, 1 - procrustes(x[rows, , drop = FALSE], y[rows, , drop = FALSE], symmetric = TRUE)$ss))
+    procrustes_r(x[rows, , drop = FALSE], y[rows, , drop = FALSE])
   })
-  ci <- pmax(0, pmin(1, test$t0 + c(-1, 1) * qnorm(0.975) * sd(boot_r)))
-  pair_stats[[j]] <- data.frame(Pair = pair_names[j], N = length(ids), Axes = k, r = test$t0, CI_low = ci[1], CI_high = ci[2], P = test$signif)
+  ci <- pmax(0, pmin(1, r_obs + c(-1, 1) * qnorm(0.975) * sd(boot_r)))
+  pair_stats[[j]] <- data.frame(Pair = pair_names[j], N = length(ids), N_patients = length(unique(patient)), Axes = k,
+                                r = r_obs, CI_low = ci[1], CI_high = ci[2],
+                                P = p_block, P_unrestricted = test_free$signif, permutations = n_protest)
 
   pts <- rbind(data.frame(x = fit$X[, 1], y = fit$X[, 2], Layer = layer_labels[[bx]]),
                data.frame(x = fit$Yrot[, 1], y = fit$Yrot[, 2], Layer = layer_labels[[by]]))
@@ -84,8 +124,8 @@ for (j in seq_along(pair_names)) {
     geom_point(aes(fill = Layer, shape = Layer), colour = "grey30", size = 2) +
     scale_fill_manual(values = layer_colors, guide = "none") + scale_shape_manual(values = layer_shapes, guide = "none") +
     annotate("text", x = -Inf, y = Inf, hjust = -0.05, vjust = 1.3, size = 2.2,
-             label = sprintf("r = %.2f [95%% CI %.2f–%.2f]\np %s, n = %d", test$t0, ci[1], ci[2],
-                             if (test$signif < 0.001) "< 0.001" else sprintf("= %.*f", if (test$signif < 0.01) 3 else 2, test$signif), length(ids))) +
+             label = sprintf("r = %.2f [95%% CI %.2f–%.2f]\np %s, n = %d", r_obs, ci[1], ci[2],
+                             if (p_block < 0.001) "< 0.001" else sprintf("= %.*f", if (p_block < 0.01) 3 else 2, p_block), length(ids))) +
     scale_y_continuous(expand = expansion(mult = c(0.08, 0.45))) +                  # room for the text above the points
     scale_x_continuous(expand = expansion(mult = 0.08)) +
     coord_equal() +
@@ -144,14 +184,10 @@ gpa <- fit_gpa(configs)
 cat(sprintf("GPA: n = %d, axes = %d, agreement = %.4f, mean pairwise r = %.4f, converged in %d iterations\n",
             length(common), k, gpa$agreement, gpa$mean_pairwise_r, gpa$iterations))
 
-## Permutation test: patients permuted within identical visit-availability patterns
+## Permutation test: patients permuted within identical visit-availability
+## patterns (permute_rows, defined above - the same scheme as the pairwise tests)
 meta4 <- coherence$four_block$sample_meta
-permute_rows <- function(meta) {
-  pattern <- tapply(meta$Timepoint, meta$SubjectID, function(z) paste(sort(unique(z)), collapse = "|"))
-  mapping <- setNames(names(pattern), names(pattern))
-  for (p in unique(pattern)) { s <- names(pattern)[pattern == p]; mapping[s] <- sample(s) }
-  match(paste(mapping[meta$SubjectID], meta$Timepoint), paste(meta$SubjectID, meta$Timepoint))
-}
+stopifnot(identical(as.character(meta4$SampleID), as.character(common)))
 set.seed(20260728)
 perm_ss <- replicate(n_gpa_perm, {
   pc <- configs
