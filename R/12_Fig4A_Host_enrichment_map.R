@@ -149,7 +149,7 @@ if (!refit_gsea) {
 ## their automatic label; use NA to leave a community unlabelled.
 panel_labels <- c(
   "MYC target\nprogram"                 = "MYC targets",
-  "ECM/collagen\nremodeling"            = "Adenoma /\ninflammation and redox programs",
+  "ECM/collagen\nremodeling"            = "Adenoma /\ninflammatory program",
   "Epithelial–mesenchymal\ntransition" = "Epithelial–mesenchymal\ntransition",
   "Translation\ninitiation"             = "Mitochondrial\ntranslation",
   "Cell-cycle\nprogression"             = "Proteasome /\nantigen-processing",
@@ -193,7 +193,7 @@ label_nudge <- list(
   "Mucin glycosylation"                      = c( 0.11,  0.04),
   "MYC-down\nsignature"                      = c( 0.06, -0.08),
   "Epithelial\u2013mesenchymal\ntransition"  = c(-0.11,  0.09),
-  "Adenoma /\ninflammation and redox programs" = c(-0.05, -0.07)
+  "Adenoma /\ninflammatory program"         = c(-0.05, -0.07)
 )
 labels <- labels %>% rowwise() %>%
   mutate(dx = if (panel_label %in% names(label_nudge)) label_nudge[[panel_label]][1] else 0,

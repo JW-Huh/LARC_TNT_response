@@ -31,8 +31,8 @@
 ##              with a permutation P value (999 permutations of the score
 ##              residuals, seed 20260908 + 622).  Nominal P values; a single
 ##              a-priori gene, so no multiplicity adjustment is applied.
-##              Expected (frozen model): Pearson r = 0.48 (P = 0.029),
-##              Spearman rho = 0.60 (P = 0.004), partial rho = 0.62 (P = 0.006).
+##              Expected (frozen model): Pearson r = 0.48 (P = 0.028),
+##              Spearman rho = 0.60 (P = 0.006), partial rho = 0.62 (P = 0.006).
 ##
 ##  WHAT CHANGES WHAT
 ##              gene <- "TJP1"           any other gene of the VST matrix can be

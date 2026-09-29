@@ -31,7 +31,9 @@
 ##     coverage >= 1/26 over the 42 metagenomes (so this is not a strictly
 ##     baseline-only filter - kept as run; see REVIEW notes).  Two-sided
 ##     Wilcoxon rank-sum test (normal approximation) on the 26 baseline samples;
-##     pathways with P < 0.2 are displayed (11).  Heatmap: log10(x + pseudocount),
+##     pathways with P < 0.2 are displayed (11); significance stars in the
+##     P-value annotation: ** P < 0.05, * P < 0.10 (thresholds of the submitted
+##     panel and its legend).  Heatmap: log10(x + pseudocount),
 ##     pseudocount = half of the smallest positive value; row z-scores; rows
 ##     clustered with Manhattan distance / average linkage; samples clustered
 ##     within response group (Euclidean / complete).  "LFC" is log10 of the
@@ -106,9 +108,10 @@ mean_cov <- rowMeans(cov[selected, baseline$SampleID])
 col_order <- order_samples_within_response(z, baseline)
 meta <- baseline[match(col_order, baseline$SampleID), ]
 
+star_cuts <- c(0.05, 0.10); star_symbols <- c("**", "*")           # <-- star thresholds (** P < 0.05, * P < 0.10)
 right <- rowAnnotation(
   `p-value` = anno_simple(-log10(p_sel), col = colorRamp2(c(0.2, 1.8), c("white", "#2166AC")),
-                          pch = p_stars(p_sel, c(0.01, 0.05), c("**", "*")), pt_gp = gpar(col = "white", fontsize = 8),
+                          pch = p_stars(p_sel, star_cuts, star_symbols), pt_gp = gpar(col = "white", fontsize = 8),
                           gp = gpar(col = "grey40", lwd = 0.5), width = unit(3.5, "mm")),
   Coverage = anno_simple(mean_cov, col = colorRamp2(c(0, 1), c("white", "#B24A5A")),
                          gp = gpar(col = "grey40", lwd = 0.5), width = unit(3.5, "mm")),
