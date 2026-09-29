@@ -183,6 +183,14 @@ different P values if the samples are in a different order. The columns
 analysis, and the readers in `_common.R` return rows in that order. If you
 build your own sample tables, keep these columns.
 
+**supplementary_tables/** holds Supplementary Table 2 of the manuscript as
+submitted (`Supplementary Table 2.xlsx`, sheets S2A–S2H: response-group
+comparisons of SGBs, species, genera, ECs, KOs, MetaCyc pathways,
+metabolites and tumour genes at baseline and after RT). It is provided here
+because the workbook is too large to be merged into the reviewer PDF; the
+same statistics are recomputed by scripts 03, 05, 06b, 07 and 10 (see the
+note on the Wilcoxon variant in section 6).
+
 ---
 
 ## 5. Frozen results and refit switches
