@@ -222,12 +222,12 @@ Every numeric result printed in a panel or quoted in the text was checked:
   mean pairwise r 0.502, P 0.0007 (5A); MOFA
   Factor 7 P 0.011 (BH q 0.154, max-F P 0.163), Factor 11 P 0.083, plane
   R² 0.157 / P 0.020 (5B–D); joint R² 0.661; the 12 Factor 7 features and
-  their loadings (5E); TJP1 Pearson r 0.48, Spearman 0.60, partial 0.62 (5F).
+  their loadings (5E); TJP1 Pearson r 0.48 (P 0.028), Spearman 0.60
+  (P 0.006), partial 0.62 (P 0.006) (5F).
 
 Permutation P values are reproduced to the last printed digit wherever the
 sample order of the original run is known (see `AnalysisOrder` /
-`EnrolmentOrder`, section 4). The three Figure 5F permutation P values
-(999 permutations) agree with the submission within ±0.002.
+`EnrolmentOrder`, section 4).
 
 Per-feature Wilcoxon P values (2A/2C, S2) are computed with
 `stats::wilcox.test` (exact when there are no ties, otherwise the normal
