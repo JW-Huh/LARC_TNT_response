@@ -320,7 +320,7 @@ not involve the metabolome did not change. Results that changed:
 | S3A | metabolites tested | 35 | 34 (histamine added; ursodeoxycholic and tauroursodeoxycholic/taurohyodeoxycholic acid no longer testable) |
 | 3F | reductive / oxidative branch index, P | 0.023 | 0.033 |
 | S3B | bile-acid indices, P | secondary/primary 0.15; CA/CDCA-derived 0.60; total 7α 0.26; CDCA-derived 7α 0.37 | 0.11; 0.55; 0.18; 0.41 |
-| 4D | displayed network | 7 metabolites, 44 genes, 62 edges | the same nodes and edges (largest change of a displayed ρ 0.0045); see `not_displayed_metabolites` below |
+| 4D | displayed network | 7 metabolites, 44 genes, 62 edges | 6 metabolites, 42 genes, 60 edges: indole-3-acetic acid and its three edges (*SLC9A3*, *NOD1*, *REG3G*) are no longer displayed and propionate–*SOD2* is added; the 59 remaining edges have unchanged correlations (see `not_displayed_metabolites` below) |
 | 4E | IAA–*CFB* ρ | 0.556 | 0.555 |
 | S5B | module correlations | | rows of chenodeoxycholic, deoxycholic and indole-3-acetic acid change slightly |
 | 5A | metabolite layer | 25 metabolites | 26 metabolites |
@@ -343,21 +343,24 @@ submitted model (`align_factor_signs()` in `R/_helpers_mofa.R`, table
 R² 0.157 / P 0.020; joint R² 0.661; *TJP1* correlations) and the features of
 5E and S6 are the same at the printed precision.
 
-*Random forest (S4).* The metabolite model has not yet been refitted with
-the corrected table: `random_forest/rf_results_submitted.rds` and
-`rf_inputs_frozen.rds` still hold the model and the input of the first
-report, and script 09b replays them. `refit_assays` / `freeze_refit` in 09b
-refit one assay and keep the other models as submitted.
+*Random forest (S4).* The frozen results in `input/random_forest/`
+(`rf_results_submitted.rds`, `rf_inputs_frozen.rds`) still hold the
+metabolite model and input of the first report (AUC 0.744), and script 09b
+replays them. The metabolite model of the manuscript was refitted with the
+corrected table (AUC 0.846 in Figure S4B; selected features acetate and
+indole-3-lactic acid); that refit is not yet part of the frozen results.
+`refit_assays <- "Metabolite"` with `freeze_refit <- TRUE` in 09b refits the
+metabolite model from the corrected table and keeps the other models as
+submitted.
 
-Switches added for this re-run, all with defaults that keep the submitted
-display:
+Switches added for this re-run:
 
 | script | switch | purpose |
 |---|---|---|
 | 07 | `bootstrap_sequence` | the bootstrap intervals are drawn in the metabolite order of the submitted analysis, so that metabolites whose values did not change keep their intervals; metabolites that became testable are appended |
 | 08 | axis orientation after `cmdscale` | the sign of a principal coordinate is arbitrary and differed between R versions; the axes are oriented by the sign of their correlation with acetate, as in the submitted panel |
-| 15 | `not_displayed_metabolites <- "histamine"` | histamine became quantifiable in the corrected table and would enter the display candidates by the selection rule, displacing indole-3-acetic acid; it is left out before ranking so that the panel keeps the submitted nodes. `character(0)` applies the rule alone (6 metabolites, 42 genes, 60 edges) |
-| 16 | `keep_submitted_row_order` | the metabolite rows keep the order of the submitted panel; without it the bile-acid rows are re-clustered and change places |
+| 15 | `not_displayed_metabolites` (default `character(0)`) | histamine became quantifiable in the corrected table and enters the display candidates by the selection rule; it ends below the three-gene rule and is not drawn, and indole-3-acetic acid drops out of the panel (6 metabolites, 42 genes, 60 edges). `"histamine"` leaves it out before the ranking and gives the panel of the first report (7 metabolites, 44 genes, 62 edges) |
+| 16 | `keep_submitted_row_order` | the metabolite rows keep the order that this script gave with the first report; without it the bile-acid rows are re-clustered and change places |
 | 20 | `freeze_refit` | see above |
 
 *Drawings under R 4.6.1.* With unchanged data, a few panels are not
