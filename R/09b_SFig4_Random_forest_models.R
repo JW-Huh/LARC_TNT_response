@@ -19,6 +19,11 @@
 ##                  fold predictions match the submitted run; SHAP draws (and
 ##                  therefore later folds) differ slightly under the current
 ##                  package versions, so a refit is a NEW fit (see REVIEW notes).
+##              refit_assays <- "Metabolite"  (with refit_rf <- FALSE)  refit
+##                  only the named assay(s) and replay all the others.  Used
+##                  once after the laboratory corrected the metabolite table
+##                  (November 2026); with freeze_refit <- TRUE the results of
+##                  that run become the replayed results.
 ##
 ##  INPUT       output/cache/random_forest_inputs.RData      (from 09a)
 ##              input/random_forest/rf_results_submitted.rds (replay mode)
@@ -61,9 +66,14 @@ suppressPackageStartupMessages({
 })
 report_versions(c("pROC", "randomForest", "rsample", "fastshap"))
 
-refit_rf <- FALSE          # <-- TRUE = recompute everything (slow); FALSE = replay submitted results
+refit_rf     <- FALSE          # <-- TRUE = recompute everything (slow); FALSE = replay submitted results
+refit_assays <- character(0)   # <-- with refit_rf = FALSE: assays to refit while the others are replayed, e.g. "Metabolite"
+freeze_refit <- FALSE          # <-- TRUE = after a refit, store the results of this run as the replayed results
+                               #     (overwrites input/random_forest/rf_results_submitted.rds)
 
 load(cache_file("random_forest_inputs.RData"))               # inputs, clinical (script 09a)
+stopifnot(all(refit_assays %in% names(inputs)))
+fit_assays <- if (refit_rf) names(inputs) else intersect(names(inputs), refit_assays)   # assays fitted in this run
 
 ## Internal two-level labels used by the models ("CR" = pCR).  Kept as in the
 ## original code so that the seeded fold assignment is reproduced.
@@ -75,7 +85,7 @@ if (!refit_rf) {
   ## ---- A. Replay mode: verify and reuse the submitted results ---------------------
   all_results <- readRDS(input_file("random_forest", "rf_results_submitted.rds"))
   stopifnot(all(c(names(inputs), "CI") %in% names(all_results)))
-  for (nm in names(inputs)) {
+  for (nm in setdiff(names(inputs), fit_assays)) {
     res <- all_results[[nm]]; x <- inputs[[nm]]
     stopifnot(
       identical(res$Pred$SampleID, rownames(x$values)),
@@ -85,10 +95,12 @@ if (!refit_rf) {
     stopifnot(abs(auc_of(res$Pred$TRG_1, res$Pred$Pred_CR) - res$AUC) < 1e-12)   # AUC recomputed from the predictions
   }
   stopifnot(abs(auc_of(all_results$CI$Pred$TRG_1, all_results$CI$Pred$Pred_CR) - all_results$CI$AUC) < 1e-12)
-  message("Replay mode: submitted out-of-fold predictions verified; no model was refitted.")
+  message("Replay mode: stored out-of-fold predictions verified for ", length(setdiff(names(inputs), fit_assays)), " assays + the clinical model",
+          if (length(fit_assays)) paste0("; refitting: ", paste(fit_assays, collapse = ", ")) else "; no model was refitted.")
+}
 
-} else {
-  ## ---- B. Full refit ------------------------------------------------------------------
+if (length(fit_assays) > 0) {
+  ## ---- B. Refit (all assays when refit_rf = TRUE, otherwise `refit_assays` only) -------
   suppressPackageStartupMessages({ library(randomForest); library(rsample); library(fastshap) })
 
   SEED <- 123; N_TREE <- 1000; V_FOLD <- 5; NSIM_SHAP <- 100      # <-- model settings
@@ -175,8 +187,8 @@ if (!refit_rf) {
   }
 
   ## B4. One assay from screening to final model ----------------------------------------
-  all_results <- list()
-  for (nm in names(inputs)) {
+  if (refit_rf) all_results <- list()                  # partial refit: keep the replayed results of the other assays
+  for (nm in fit_assays) {
     message("Random forest: ", nm)
     values <- inputs[[nm]]$values; meta <- inputs[[nm]]$metadata
     scores <- screen_features(values, meta)
@@ -239,29 +251,37 @@ if (!refit_rf) {
     cat(sprintf("  pooled out-of-fold AUC = %.3f\n", all_results[[nm]]$AUC))
   }
 
-  ## B5. Clinical model (one row per patient) ------------------------------------------
-  ci_features <- c("cT_stage_code", "cN_stage", "CEA_high")
-  rf_ci <- clinical %>% transmute(SNU_ID = SubjectID, TRG_1 = to_cr(Response), across(all_of(ci_features)))
-  rownames(rf_ci) <- rf_ci$SNU_ID
-  set.seed(SEED)
-  folds_ci <- group_vfold_cv(rf_ci, group = SNU_ID, v = V_FOLD, strata = TRG_1)
-  fit_ci <- cv_forest(rf_ci, ci_features, folds_ci)
-  roc_ci <- roc(rf_ci$TRG_1, fit_ci$pred, levels = c("nonCR", "CR"), direction = "<", quiet = TRUE)
-  all_results[["CI"]] <- list(Input = "CI", Model = "RF_CI", FS = NA, AUC = as.numeric(auc(roc_ci)), ROC = roc_ci,
-                              Pred = data.frame(SubjectID = rf_ci$SNU_ID, TRG_1 = rf_ci$TRG_1, Pred_CR = fit_ci$pred))
-  cat(sprintf("Clinical model: pooled out-of-fold AUC = %.3f\n", all_results$CI$AUC))
+  ## B5. Clinical model (one row per patient; full refit only) ----------------------------
+  if (refit_rf) {
+    ci_features <- c("cT_stage_code", "cN_stage", "CEA_high")
+    rf_ci <- clinical %>% transmute(SNU_ID = SubjectID, TRG_1 = to_cr(Response), across(all_of(ci_features)))
+    rownames(rf_ci) <- rf_ci$SNU_ID
+    set.seed(SEED)
+    folds_ci <- group_vfold_cv(rf_ci, group = SNU_ID, v = V_FOLD, strata = TRG_1)
+    fit_ci <- cv_forest(rf_ci, ci_features, folds_ci)
+    roc_ci <- roc(rf_ci$TRG_1, fit_ci$pred, levels = c("nonCR", "CR"), direction = "<", quiet = TRUE)
+    all_results[["CI"]] <- list(Input = "CI", Model = "RF_CI", FS = NA, AUC = as.numeric(auc(roc_ci)), ROC = roc_ci,
+                                Pred = data.frame(SubjectID = rf_ci$SNU_ID, TRG_1 = rf_ci$TRG_1, Pred_CR = fit_ci$pred))
+    cat(sprintf("Clinical model: pooled out-of-fold AUC = %.3f\n", all_results$CI$AUC))
+  }
+  all_results <- all_results[union(c(names(inputs), "CI"), names(all_results))]   # assay order of the submitted results
 }
 
 
 ## ---- C. Save results and summary tables ---------------------------------------------
 
 saveRDS(all_results, cache_file("random_forest_results.rds"))
+if (freeze_refit && length(fit_assays) > 0) {
+  saveRDS(all_results, input_file("random_forest", "rf_results_submitted.rds"))
+  message("freeze_refit: input/random_forest/rf_results_submitted.rds now holds the results of this run (refitted: ",
+          paste(fit_assays, collapse = ", "), ").")
+}
 
 auc_tbl <- data.frame(Input = names(all_results),
                       AUC = vapply(all_results, `[[`, numeric(1), "AUC"),
                       N_samples = vapply(all_results, function(r) nrow(r$Pred), integer(1)),
                       N_features = vapply(all_results, function(r) if (is.null(r$Selected_features)) 3L else length(r$Selected_features), integer(1)),
-                      Mode = ifelse(refit_rf, "refit", "submitted"), row.names = NULL)
+                      Mode = ifelse(names(all_results) %in% c(fit_assays, if (refit_rf) "CI"), "refit", "submitted"), row.names = NULL)
 print(auc_tbl, row.names = FALSE, digits = 4)
 save_table(auc_tbl, "SFig4B_random_forest_AUC")
 

@@ -57,7 +57,7 @@ Conventions
 
 | file | rows | columns | content |
 |---|---|---|---|
-| `fecal_metabolites.csv` | 32 | `AnalysisOrder`, `MetaboliteSampleID`, `SubjectID`, `Timepoint`, `SampleID`, then 40 metabolite columns | targeted fecal metabolomics (µmol per g stool): 6 short-chain fatty acids, 18 tryptophan-pathway / amine / amino-acid analytes, 16 bile acids. 20 baseline + 12 after-RT samples (21 patients). Values at the assay floor are repeated identical minima (see the QC steps in scripts 07, 14, 18). `AnalysisOrder` = the row order of the laboratory table (keep it). `Lithocholic_acid` was spelled `Lithocholi_acid` in the laboratory table (see script 16) |
+| `fecal_metabolites.csv` | 32 | `AnalysisOrder`, `MetaboliteSampleID`, `SubjectID`, `Timepoint`, `SampleID`, then 40 metabolite columns | targeted fecal metabolomics (µmol per g stool): 6 short-chain fatty acids, 18 tryptophan-pathway / amine / amino-acid analytes, 16 bile acids. 20 baseline + 12 after-RT samples (22 patients). Values are those of the laboratory's corrected report (v2, November 2026): analytes reported as not detected (`N.D.`) are `0`. In the first report, non-detects of several analytes had been filled in with a repeated constant (histamine, hyodeoxycholic, ursodeoxycholic, taurochenodeoxycholic and tauroursodeoxycholic/taurohyodeoxycholic acid) and a few other cells were corrected (see `dev/update_fecal_metabolites_v2.py` for how this file was rebuilt). `AnalysisOrder` = the row order of the laboratory table (keep it). `Lithocholic_acid` was spelled `Lithocholi_acid` in the laboratory table (see script 16). Raw data: MetaboLights MTBLS16367 (tryptophan-related metabolites, bile acids) and MTBLS16378 (short-chain fatty acids) |
 
 ## host_rnaseq/
 
@@ -81,8 +81,8 @@ Conventions
 
 | file | content |
 |---|---|
-| `mofa_input_frozen.rds` | `values` (four centred views: species 392, KO 2,000, metabolite 25, host 2,000 features; 42 samples, NA where a view is missing) and `metadata` (`SampleID`, `SubjectID`, `Timepoint`, `TRG_plot`, `TRG_score`, `Response`, `Time`, `n_observed_views`) — the exact training input of the frozen model; script 20 rebuilds it from the raw tables and checks equality |
-| `mofa_trained_model_frozen.rds` | `extracted$scores` (sample × 14 factors), `extracted$weights` (view, feature, factor, weight, feature_label), `extracted$variance` (r² per view × factor), `training_log` (K, spike-slab, seed, ELBO, selected) of the 4 × 2 model grid |
+| `mofa_input_frozen.rds` | `values` (four centred views: species 392, KO 2,000, metabolite 26, host 2,000 features; 42 samples, NA where a view is missing) and `metadata` (`SampleID`, `SubjectID`, `Timepoint`, `TRG_plot`, `TRG_score`, `Response`, `Time`, `n_observed_views`) — the exact training input of the frozen model (rebuilt in November 2026 with the corrected metabolite table; 25 metabolites in the submitted model); script 20 rebuilds it from the raw tables and checks equality |
+| `mofa_trained_model_frozen.rds` | `extracted$scores` (sample × 14 factors), `extracted$weights` (view, feature, factor, weight, feature_label), `extracted$variance` (r² per view × factor), `training_log` (K, spike-slab, seed, ELBO, selected) of the 4 × 2 model grid. Retrained in November 2026 on the corrected metabolite table (MOFA2 1.22.1, mofapy2 0.7.5); the 14 factors correspond one to one to those of the submitted model and carry the same signs (`sign_alignment`) |
 
 ---
 

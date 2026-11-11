@@ -78,7 +78,7 @@ nodes <- candidate_features(mofa_model$extracted$weights, mofa_model$extracted$v
 
 ## KO names for a refit without an annotation column (frozen weights already carry them)
 ko_i <- which(nodes$view == "ko" & nodes$feature_label == nodes$feature)
-if (length(ko_i)) nodes$feature_label[ko_i] <- display_feature_label("ko", nodes$feature[ko_i],
+if (length(ko_i)) nodes$feature_label[ko_i] <- display_feature_label(rep("ko", length(ko_i)), nodes$feature[ko_i],
                                                                       coherence$ko_annotation$KO_name[match(nodes$feature[ko_i], coherence$ko_annotation$KO)])
 
 ## observed effect of every candidate: Hedges' g of the patient means (pCR - non-pCR)

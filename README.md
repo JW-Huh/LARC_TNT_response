@@ -123,7 +123,21 @@ figure. Tunable parameters are marked in the code with `# <--`.
 
 The verification runs used **R 4.3.2** (Windows, UCRT) with the package
 versions below. Newer versions should work; the versions matter only when
-you want to reproduce permutation P values to the last digit.
+you want to reproduce permutation P values to the last digit. The re-run
+with the corrected metabolite table (November 2026, section 7) used
+**R 4.6.1** with the package versions current at that time; the result
+tables of all analyses that do not involve the metabolome agreed with the
+R 4.3.2 results (largest relative difference 1 × 10⁻⁵, in the DESeq2
+statistics; see section 7 for what differs in the drawings).
+
+*Wilcoxon tests and the R version.* From R 4.6.0 `stats::wilcox.test`
+returns an exact conditional P value for tied data by default, whereas
+earlier versions use the normal approximation whenever there are ties.
+`wilcox_p()` in `R/_common.R` therefore states the rule of the submitted
+analysis explicitly (exact P without ties and n < 50 per group, otherwise
+normal approximation with continuity correction) and returns P with 12
+significant digits, so that every R version gives the same P values and the
+same order of tied P values.
 
 | package | version | used for |
 |---|---|---|
@@ -165,7 +179,10 @@ BiocManager::install(c("mixOmics", "ComplexHeatmap", "DESeq2", "fgsea"))   # + "
   MetaCyc tables, dbCAN CAZyme TPM, the KO → functional-category table
   (Supplementary Table 3) and the curated microbial-group memberships
   (Supplementary Table 1).
-* **metabolome/** — 40 targeted fecal metabolites (µmol/g) for 32 samples.
+* **metabolome/** — 40 targeted fecal metabolites (µmol/g) for 32 samples
+  (corrected laboratory report of November 2026, non-detected = 0; see
+  section 7). The laboratory result files are in MetaboLights (MTBLS16367:
+  bile acids and tryptophan-related compounds; MTBLS16378: SCFAs).
 * **host_rnaseq/** — the gene-level count matrix of the tumour biopsies (as
   deposited in GEO), frozen GSEA results and the enrichment-map node table,
   and the MSigDB gene sets used.
@@ -204,7 +221,7 @@ script replays and *re-verifies* it by default:
 | random forests (S4) | `random_forest/rf_results_submitted.rds` | AUC of every model recomputed from the stored out-of-fold predictions | `refit_rf <- TRUE` in 09b (1–2 h; SHAP draws differ → a new fit) |
 | targeted GSEA (4B) | `host_rnaseq/gsea_targeted_results_frozen.csv` | the 22 displayed NES / P / FDR are compared with the submitted values (tolerance 1e-8) | `refit_gsea <- TRUE` in 11 |
 | global GSEA + enrichment map (4A) | `host_rnaseq/gsea_global_results_frozen.csv`, `enrichment_map_nodes_frozen.csv` | node selection and edges are recomputed from the table; only cluster membership / labels are taken from the frozen nodes | `refit_gsea <- TRUE` in 12 (needs msigdbr) |
-| MOFA (5B–F, S6) | `mofa/mofa_input_frozen.rds`, `mofa_trained_model_frozen.rds` | the four views are rebuilt from the raw data and must equal the frozen training input (tolerance 1e-7); variance explained is reconstructed from scores × weights and compared with the stored values | `refit_mofa <- TRUE` in 20 (needs MOFA2 + Python) |
+| MOFA (5B–F, S6) | `mofa/mofa_input_frozen.rds`, `mofa_trained_model_frozen.rds` (retrained in November 2026 on the corrected metabolite table, section 7) | the four views are rebuilt from the raw data and must equal the frozen training input (tolerance 1e-7); variance explained is reconstructed from scores × weights and compared with the stored values | `refit_mofa <- TRUE` in 20 (needs MOFA2 + Python; `freeze_refit <- TRUE` stores the refit as the new frozen model) |
 
 All other analyses are recomputed from the raw tables every time.
 
@@ -213,7 +230,10 @@ All other analyses are recomputed from the raw tables every time.
 ## 6. Verification against the submitted figures
 
 All 28 scripts were run from a clean `output/` folder (R 4.3.2, Windows).
-Every numeric result printed in a panel or quoted in the text was checked:
+Every numeric result printed in a panel or quoted in the text was checked.
+The list below is the record of the submitted analysis (first laboratory
+report of the metabolome); the values that changed with the corrected
+metabolite table are listed in section 7:
 
 * diversity P values (evenness 0.047, inverse Simpson 0.087, Shannon 0.148,
   richness 0.775), PERMANOVA S1D (R² 0.044, P 0.291), S1E R² values;
@@ -265,7 +285,7 @@ Known, documented differences from the submitted PDF panels:
 | 1G, 4A, S6 | network node positions come from a seeded force-directed layout; the submitted panels were arranged by hand (1G reproduces the Cytoscape coordinates where available) | 03, 12, 22 |
 | S5B | lithocholic acid is excluded explicitly: in the laboratory table used for the submission its column was misspelled (`Lithocholi_acid`) and therefore not recognised as a bile acid; the curated input corrects the name | 16, `excluded_metabolites` |
 | 4B | the first gene set ("PI3K–AKT signaling with NF-κB") is the KEGG MEDICUS set N01339 (NNK/NNN → PI3K signaling); the display name is the submitted one | 11, `catalog` |
-| 5B–F, S6 | the rebuilt MOFA views equal the frozen training input (species, metabolite, host exactly; KO within 1.5 × 10⁻⁵ relative, the same 2,000 features); the frozen model is used, so a retrain (`refit_mofa`) will give different factor numbers | 20 |
+| 5B–F, S6 | the rebuilt MOFA views are compared with the frozen training input (relative tolerance 10⁻⁴; in the submitted model the species, metabolite and host views were identical and the KO view agreed within 1.5 × 10⁻⁵ relative, the same 2,000 features); the frozen model is used, because a retrain (`refit_mofa`) can change factor numbering and sign | 20 |
 | 5E | the lollipop shows the normalised loading (sign oriented towards pCR) without the Hedges' g colour of the original draft script; g is in the table | 22 |
 
 Design: colours, shapes, axis labels and panel proportions follow the
@@ -276,7 +296,80 @@ were in the submission.
 
 ---
 
-## 7. Changing things
+## 7. Corrected metabolite table (November 2026)
+
+In November 2026 the laboratory re-issued the targeted metabolomics report.
+In the first report, cells of analytes that had not been detected in a
+sample had been filled in with values. 171 of the 1,280 cells (32 samples ×
+40 analytes) changed: 131 values became non-detects (hyodeoxycholic acid 31,
+ursodeoxycholic acid 29, tauroursodeoxycholic/taurohyodeoxycholic acid 28,
+taurochenodeoxycholic acid 18, indole-3-lactic acid 8, histamine 5,
+indole-3-acetic acid 4, and one or two cells of six other analytes) and 40
+values were re-quantified (histamine 27, taurodeoxycholic acid 12,
+tryptamine 1). `input/metabolome/fecal_metabolites.csv` holds the corrected
+values (non-detected = 0); `dev/update_fecal_metabolites_v2.py` shows how
+the file was rebuilt, and Supplementary Table 2 (sheet S2G) was recomputed.
+
+All scripts were re-run with the corrected table (R 4.6.1). Results that do
+not involve the metabolome did not change. Results that changed:
+
+| panel | result | first report | corrected table |
+|---|---|---|---|
+| 3A | PCoA axes; PERMANOVA | 64.6 % / 15.6 %; R² 0.134, P 0.063 | 64.5 % / 15.7 %; R² 0.134, P 0.063 |
+| 3B | metabolites shown | 7 | 6: indole-3-lactic acid is no longer different between the groups (P 0.038 → 0.385; g 0.40 [−0.48, 1.08]); g and intervals of the other six are unchanged |
+| S3A | metabolites tested | 35 | 34 (histamine added; ursodeoxycholic and tauroursodeoxycholic/taurohyodeoxycholic acid no longer testable) |
+| 3F | reductive / oxidative branch index, P | 0.023 | 0.033 |
+| S3B | bile-acid indices, P | secondary/primary 0.15; CA/CDCA-derived 0.60; total 7α 0.26; CDCA-derived 7α 0.37 | 0.11; 0.55; 0.18; 0.41 |
+| 4D | displayed network | 7 metabolites, 44 genes, 62 edges | the same nodes and edges (largest change of a displayed ρ 0.0045); see `not_displayed_metabolites` below |
+| 4E | IAA–*CFB* ρ | 0.556 | 0.555 |
+| S5B | module correlations | | rows of chenodeoxycholic, deoxycholic and indole-3-acetic acid change slightly |
+| 5A | metabolite layer | 25 metabolites | 26 metabolites |
+| 5A | KO–metabolite Procrustes | r 0.487 [0.349, 0.624], P 0.0165 | r 0.492 [0.357, 0.627], P 0.0126 |
+| 5A | metabolite–host Procrustes | r 0.440 [0.315, 0.566], P 0.0925 | r 0.442 [0.315, 0.570], P 0.0840 |
+| 5A | GPA agreement; mean pairwise r; P | 0.774; 0.502; 0.0007 | 0.768; 0.502; 0.0019 |
+| 5B | variance explained by the metabolite view | | changes by up to 1.4 percentage points per factor (Factor 7: 3.7 % → 3.6 %) |
+| 5E | Factor 7 metabolite loadings | nicotinic acid 0.350, IPA 0.251, glutamic acid 0.105 | 0.352, 0.247, 0.119 |
+
+*MOFA.* The metabolite view changed (26 instead of 25 metabolites), so the
+model grid was retrained (MOFA2 1.22.1, mofapy2 0.7.5) and the retrained
+model replaces the frozen one in `input/mofa/`. The selected model again has
+K = 14 factors with spike-slab weights (seed 97 instead of 41 had the highest
+ELBO). Every factor of the retrained model corresponds to the factor with
+the same number in the submitted model (|r| of the factor scores ≥ 0.99998);
+eight factors came out with the opposite sign and were oriented like the
+submitted model (`align_factor_signs()` in `R/_helpers_mofa.R`, table
+`Fig5B_MOFA_sign_alignment.csv`). The statistics quoted in section 6 for
+5B–F (Factor 7 P 0.011, q 0.154, max-F P 0.163; Factor 11 P 0.083; plane
+R² 0.157 / P 0.020; joint R² 0.661; *TJP1* correlations) and the features of
+5E and S6 are the same at the printed precision.
+
+*Random forest (S4).* The metabolite model has not yet been refitted with
+the corrected table: `random_forest/rf_results_submitted.rds` and
+`rf_inputs_frozen.rds` still hold the model and the input of the first
+report, and script 09b replays them. `refit_assays` / `freeze_refit` in 09b
+refit one assay and keep the other models as submitted.
+
+Switches added for this re-run, all with defaults that keep the submitted
+display:
+
+| script | switch | purpose |
+|---|---|---|
+| 07 | `bootstrap_sequence` | the bootstrap intervals are drawn in the metabolite order of the submitted analysis, so that metabolites whose values did not change keep their intervals; metabolites that became testable are appended |
+| 08 | axis orientation after `cmdscale` | the sign of a principal coordinate is arbitrary and differed between R versions; the axes are oriented by the sign of their correlation with acetate, as in the submitted panel |
+| 15 | `not_displayed_metabolites <- "histamine"` | histamine became quantifiable in the corrected table and would enter the display candidates by the selection rule, displacing indole-3-acetic acid; it is left out before ranking so that the panel keeps the submitted nodes. `character(0)` applies the rule alone (6 metabolites, 42 genes, 60 edges) |
+| 16 | `keep_submitted_row_order` | the metabolite rows keep the order of the submitted panel; without it the bile-acid rows are re-clustered and change places |
+| 20 | `freeze_refit` | see above |
+
+*Drawings under R 4.6.1.* With unchanged data, a few panels are not
+pixel-identical to the R 4.3.2 drawings: `ggplot2` stacks several legends of
+one panel in a version-dependent order (now fixed with explicit `guides()`
+in 16 and 21), and label placement (`ggrepel`), point jitter and
+`ComplexHeatmap` rendering differ slightly between package versions. The
+underlying tables are the same.
+
+---
+
+## 8. Changing things
 
 * **Colours / theme** — `R/_common.R` (`response_colors`, `family_colors`,
   `theme_tnt()`); every panel follows.
@@ -291,7 +384,7 @@ were in the submission.
 
 ---
 
-## 8. Citation
+## 9. Citation
 
 Please cite the manuscript when using this code or the curated inputs.
 Third-party resources: MetaPhlAn 4 / HUMAnN 3 (Beghini et al. 2021), dbCAN,

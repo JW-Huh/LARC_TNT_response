@@ -28,7 +28,8 @@
 ##
 ##  METHODS
 ##   * Metabolome ordination (3A): metabolites detected in >= 20 % of samples
-##     with non-zero variance (36), raw concentrations (no standardisation),
+##     with non-zero variance (34 in the corrected laboratory report of
+##     November 2026), raw concentrations (no standardisation),
 ##     Bray-Curtis dissimilarity (vegan 2.6-6.1), classical PCoA (cmdscale,
 ##     k = 2); axis % = positive eigenvalue / sum of positive eigenvalues.
 ##     PERMANOVA: adonis2, 9,999 permutations, seed 123.  Arrows: envfit()
@@ -76,6 +77,14 @@ species <- read_metaphlan("species", samples = metab$SampleID, drop_empty = FALS
 d_metab <- vegdist(m_ord, method = "bray")
 pcoa <- cmdscale(d_metab, k = 2, eig = TRUE)
 axis_pct <- 100 * pmax(pcoa$eig, 0) / sum(pmax(pcoa$eig, 0))
+## The sign of a principal coordinate is arbitrary and depends on the linear-
+## algebra library (R 4.6 returns PCo2 mirrored relative to R 4.3).  Both axes
+## are oriented by a fixed rule - acetate, the most abundant metabolite,
+## decreases along PCo1 and increases along PCo2 - which is the orientation of
+## the submitted panel.  Distances, PERMANOVA and the fitted vectors (r2, P)
+## do not depend on it.
+axis_sign <- c(-1, 1) * sign(as.vector(cor(pcoa$points, m[, "Acetate"])))
+pcoa$points <- sweep(pcoa$points, 2, axis_sign, "*")
 
 set.seed(123)                                                          # <-- permutation seed
 permanova <- adonis2(d_metab ~ Response, data = metab, permutations = 9999)

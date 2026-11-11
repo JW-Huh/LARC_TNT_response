@@ -27,9 +27,12 @@
 ##     the MOFA table is the Hellinger (square-root) transform, z-scored.
 ##     KOs annotated as ribosomal proteins and UNGROUPED/UNMAPPED are removed.
 ##   * Metabolites (32 samples): repeated-minimum values are treated as the
-##     assay floor and replaced by floor/2; metabolites kept when >= 50 % of
-##     samples are finite, >= 50 % lie above the repeated floor, >= 2 distinct
-##     detected values and non-zero variance remain (25 of 40); z-scored;
+##     assay floor and replaced by floor/2 (a floor of 0 = not detected is
+##     replaced by half of the lowest detected value); metabolites kept when
+##     >= 50 % of samples are finite, >= 50 % lie above the repeated floor,
+##     >= 2 distinct detected values and non-zero variance remain (26 of 40
+##     with the corrected laboratory report of November 2026, in which every
+##     floor is a non-detect; 25 of 40 with the first report); z-scored;
 ##     Euclidean distance.
 ##   * Host (27 biopsies): genes with >= 10 counts in >= 20 % of biopsies,
 ##     blind DESeq2 VST; the highest-variance genes accounting for 50 % of the

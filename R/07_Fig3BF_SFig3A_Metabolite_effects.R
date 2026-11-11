@@ -22,16 +22,18 @@
 ##              output/tables/Fig3F_tryptophan_ratio.csv
 ##
 ##  METHODS
-##   * Baseline metabolome: 20 patients (8 pCR, 12 non-pCR).  Metabolites
+##   * Baseline metabolome: 20 patients (11 pCR, 9 non-pCR).  Metabolites
 ##     detected (> 0) in >= 20 % of samples (>= 4) and with a defined Wilcoxon
-##     P (non-constant) are testable: 35 of 40.
+##     P (non-constant) are testable: 34 of 40 (corrected laboratory report of
+##     November 2026, non-detected = 0; 35 of 40 in the first report).
 ##   * P: two-sided Wilcoxon rank-sum test, normal approximation with continuity
 ##     correction (exact = FALSE).  Metabolites with P < 0.1 are shown in 3B.
 ##   * Effect size: Hedges' g = (mean_pCR - mean_nonpCR) / pooled SD, multiplied
 ##     by the small-sample correction 1 - 3/(4 df - 1); positive = higher in pCR.
 ##     95 % interval = 2.5-97.5 percentiles of g over 2,000 group-stratified
-##     bootstrap resamples (seed 123).  This is a percentile bootstrap of the
-##     effect size, not an inversion of the Wilcoxon test.
+##     bootstrap resamples (seed 123, metabolites resampled in the sequence of
+##     the submitted analysis - see section 2).  This is a percentile bootstrap
+##     of the effect size, not an inversion of the Wilcoxon test.
 ##   * Ternary (3F): ILA, IPA and IAA concentrations are z-scored per
 ##     metabolite and passed through a row-wise softmax, so each patient gets
 ##     three weights summing to 1 - a DISPLAY transformation; the coordinates
@@ -85,16 +87,37 @@ effects <- effects[is.finite(effects$P), ]                      # constant metab
 effects <- effects[order(effects$P), ]
 cat("Testable metabolites:", nrow(effects), "\n")
 
-## Bootstrap in the same (P-ordered) sequence and with the same seed as the
-## submitted analysis so that the intervals are reproduced exactly.
+## Bootstrap sequence.  All metabolites draw from one random stream (seed 123),
+## so the interval of a metabolite depends on its position in the sequence.
+## The sequence of the submitted analysis is kept (the P order of the first
+## laboratory report, 35 metabolites): every metabolite stays in its original
+## position, and the intervals of metabolites whose values did not change in
+## the corrected report of November 2026 are identical to the submitted ones.
+## Positions of metabolites that are no longer testable still consume their
+## draws; metabolites that became testable with the corrected report
+## (histamine) follow at the end.
+bootstrap_sequence <- c(
+  "Indole_lactic_acid", "Indole_acetic_acid", "Butyrate", "Acetate", "Propionate", "Aminophenol",
+  "Indolepropionic_acid", "Cholic_acid", "Dopamine", "Acetaminophen", "Nicotinic_acid",
+  "Glutamic_acid", "Taurochenodeoxycholic_acid", "gamma_Aminobutyric_acid", "Glycocholic_acid",
+  "Glycochenodeoxycholic_acid", "Chenodeoxycholic_acid", "Glycoursodeoxycholic_acid",
+  "Taurocholic_acid", "Taurodeoxycholic_acid", "Isobutyrate", "Kynurenic_acid", "Xanthurenic_acid",
+  "Isovalerate", "Tauroursodeoxycholic_acid_Taurohyodeoxycholic_acid", "Indole", "Tryptamine",
+  "Valerate", "Tryptophan", "Deoxycholic_acid", "Ursodeoxycholic_acid", "Taurolithocholic_acid",
+  "Glycolithocholic_acid", "Lithocholic_acid", "Glycodeoxycholic_acid"
+)
+bootstrap_sequence <- c(bootstrap_sequence, setdiff(effects$Metabolite, bootstrap_sequence))
+stopifnot(all(bootstrap_sequence %in% metabolites))
+
 set.seed(123)                                                   # <-- bootstrap seed
-ci <- t(sapply(effects$Metabolite, function(m) {
+ci <- t(sapply(bootstrap_sequence, function(m) {
   x <- metab[is_pcr, m]; y <- metab[!is_pcr, m]
   g <- replicate(n_boot, hedges_g(sample(x, replace = TRUE), sample(y, replace = TRUE)))
-  quantile(g, c(0.025, 0.975), na.rm = TRUE)
+  if (all(is.na(g))) return(c(NA_real_, NA_real_))
+  unname(quantile(g, c(0.025, 0.975), na.rm = TRUE))
 }))
-effects$CI_low  <- ci[, 1]
-effects$CI_high <- ci[, 2]
+effects$CI_low  <- ci[effects$Metabolite, 1]
+effects$CI_high <- ci[effects$Metabolite, 2]
 effects$Direction <- ifelse(effects$Hedges_g >= 0, "Higher in pCR", "Higher in non-pCR")
 effects$Label <- gsub("_", " ", effects$Metabolite)
 effects$Label[effects$Metabolite == "Indolepropionic_acid"] <- "Indole propionic acid"

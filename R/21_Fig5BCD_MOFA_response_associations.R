@@ -59,6 +59,7 @@ save_table(a$pair_results, "Fig5D_factor_pair_tests")
 ## variance explained: reconstructed and checked against the MOFA2 values
 ve <- variance_explained(mofa_model$extracted, mofa_input$values)
 stored <- mofa_model$extracted$variance
+stored$view <- as.character(stored$view); stored$factor <- as.character(stored$factor)
 chk <- merge(stored[, c("view", "factor", "r2")], ve$components[, c("view", "factor", "r2")], by = c("view", "factor"), suffixes = c("_mofa", "_rebuilt"))
 stopifnot(max(abs(chk$r2_mofa - chk$r2_rebuilt)) < 5e-4)
 total_r2 <- ve$total$r2[ve$total$factor == "ALL_FACTORS"]
@@ -85,6 +86,7 @@ p_forest <- ggplot(effects, aes(g, y, colour = tier, shape = period)) +
   scale_size_manual(values = c(`TRUE` = 3, `FALSE` = 2.2), guide = "none") +
   scale_colour_manual(values = tier_colors, name = "Sig.", labels = c(expression(italic(P) < 0.05), expression(0.05 <= italic(P) * " < 0.1"), "NS")) +
   scale_shape_manual(values = c(Overall = 21, Baseline = 22, `After RT` = 23), name = "Time") +
+  guides(shape = guide_legend(order = 1), colour = guide_legend(order = 2)) +     # fixed legend order (Time above Sig., as submitted)
   scale_y_continuous(breaks = seq_along(factor_order), labels = factor_label(factor_order), expand = expansion(add = 0.6)) +
   coord_cartesian(xlim = c(-3, 3)) +
   labs(x = expression("Hedges' " * italic(g)), y = NULL) +
@@ -94,7 +96,9 @@ p_forest <- ggplot(effects, aes(g, y, colour = tier, shape = period)) +
 
 view_labels <- c(species = "Species", metabolite = "Metabolite", ko = "KO", host = "Host RNA")
 v <- stored %>% dplyr::filter(factor %in% factor_order) %>%
-  dplyr::mutate(factor = factor(factor, levels = factor_order), view = factor(view_labels[view], levels = view_labels), pct = 100 * r2)
+  dplyr::mutate(factor = factor(factor, levels = factor_order),
+                view = factor(view_labels[as.character(view)], levels = view_labels),      # by name (a refit stores `view` as a factor)
+                pct = 100 * r2)
 p_tiles <- ggplot(v, aes(view, factor, fill = pct)) +
   geom_tile(colour = "white", linewidth = 0.8) +
   geom_text(aes(label = sprintf("%.1f", pct), colour = pct > 0.52 * max(pct)), size = 3) +

@@ -18,15 +18,21 @@
 ##  OUTPUT      output/cache/random_forest_inputs.RData   (inputs, clinical)
 ##              output/tables/SFig4_random_forest_input_summary.csv
 ##
-##  METHODS     No statistics.  The matrices are the processed values exactly as
-##              used for the submitted models (metagenomic profiles of all 42
-##              stool samples; 31 fecal metabolomes).  They are stored "frozen"
-##              because the metabolite matrix carries an assay-floor
-##              subtraction (28 tiny negative residuals, minimum -5e-9) and 14
-##              KO cells that differ from the current HUMAnN export - both are
-##              retained so that the screening and models replay exactly.
-##              To build the matrices from the raw tables instead, see the
-##              comment block at the end of this script.
+##  METHODS     No statistics.  The metagenomic matrices are the processed values
+##              exactly as used for the submitted models (all 42 stool
+##              samples).  They are stored "frozen" because 14 KO cells differ
+##              from the current HUMAnN export - retained so that the
+##              screening and models replay exactly.
+##              The Metabolite matrix is NOT taken from the frozen file: it is
+##              rebuilt from input/metabolome/fecal_metabolites.csv (the
+##              laboratory's corrected report, non-detects = 0) for the same 31
+##              observations and in the same row / column order as the frozen
+##              matrix, so the seeded cross-validation folds are unchanged.
+##              (The frozen metabolite matrix came from the first report, in
+##              which non-detects of five analytes carried a repeated constant
+##              that had been subtracted.)
+##              To build the other matrices from the raw tables instead, see
+##              the comment block at the end of this script.
 ##
 ##  R PACKAGES  base R only
 ## =============================================================================
@@ -41,8 +47,24 @@ rf <- readRDS(input_file("random_forest", "rf_inputs_frozen.rds"))
 inputs   <- rf$inputs
 clinical <- rf$clinical
 cat(rf$note, "\n")
-
 stopifnot(identical(names(inputs), c("Strain", "Species", "Genus", "Family", "Phylum", "Pathway", "KO", "Metabolite")))
+
+
+## ---- 1b. Metabolite assay: values of the corrected laboratory table -------------
+## Same observations (rows) and metabolites (columns, same order and names) as
+## the frozen matrix; only the concentrations are replaced.
+
+met_table  <- read_metabolites()                                            # 32 samples, corrected values
+frozen_met <- inputs$Metabolite$values
+met_column <- sub("^Lithocholi_acid$", "Lithocholic_acid", colnames(frozen_met))   # spelling of the first laboratory table
+stopifnot(all(rownames(frozen_met) %in% met_table$SampleID), all(met_column %in% names(met_table)))
+corrected_met <- as.matrix(met_table[match(rownames(frozen_met), met_table$SampleID), met_column])
+dimnames(corrected_met) <- dimnames(frozen_met)
+cat(sprintf("Metabolite assay rebuilt from the corrected table: %d observations x %d metabolites; %d cells differ from the frozen matrix by > 1e-6\n",
+            nrow(corrected_met), ncol(corrected_met), sum(abs(corrected_met - pmax(frozen_met, 0)) > 1e-6)))
+inputs$Metabolite$values <- corrected_met
+
+
 for (nm in names(inputs)) {
   x <- inputs[[nm]]
   stopifnot(
@@ -83,4 +105,4 @@ message("Done: 09a_SFig4_Random_forest_inputs.R")
 ## KO        = input/microbiome/humann_ko_cpm.tsv, unstratified rows (14 cells
 ##      differ from the frozen matrix; provenance not recoverable).
 ## Metabolite = input/metabolome/fecal_metabolites.csv minus one after-RT sample
-##      (31 of 32 observations), assay floor subtracted per metabolite.
+##      (31 of 32 observations), built in section 1b above (non-detects = 0).

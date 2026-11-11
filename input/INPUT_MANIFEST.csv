@@ -5,7 +5,7 @@
 "host_rnaseq/gsea_targeted_results_frozen.csv",2803,18,1.85,"d3d53a7e010b956682eaafc8930ac142",FALSE
 "host_rnaseq/msigdb_2026.1.Hs_gene_sets.rds",,,0.74,"aa209507dd9efe9f701cf97fa4d62a2b",FALSE
 "host_rnaseq/tumor_rna_counts.csv",46427,31,7.29,"212f2e7963783724316e70aed36dd86f",FALSE
-"metabolome/fecal_metabolites.csv",32,45,0.01,"0a850964cb687f8956fa0b01332abf63",FALSE
+"metabolome/fecal_metabolites.csv",32,45,0.02,"29c4ab4f76af0aa425b4f5ecfe4ac1ff",FALSE
 "metadata/id_crosswalk_restricted.csv",27,5,0.0,"d38af946ec53d49484da29826ced01e2",TRUE
 "metadata/legacy_paired_subjects.csv",10,1,0.0,"e62dcdb71893a28053c943cdd7ecda3a",FALSE
 "metadata/patients.csv",26,5,0.0,"a89890129df6a46286736ae46b8e7128",FALSE
@@ -28,7 +28,7 @@
 "microbiome/metaphlan_sgb.csv",1317,43,0.35,"ef4d4f29b8b5c0f62015014d631cfa1c",FALSE
 "microbiome/metaphlan_species.csv",1227,43,0.31,"8e307cc22711415ed99993c99f5d8f5e",FALSE
 "microbiome/microbial_groups.csv",110,4,0.01,"c2f48ac31f314bf18224fe0461bf408d",FALSE
-"mofa/mofa_input_frozen.rds",,,1.13,"50ce66d42d6695ce978b6142b16d86ac",FALSE
-"mofa/mofa_trained_model_frozen.rds",,,0.27,"8f3044b80d122cf058fdb6ee2d66f765",FALSE
+"mofa/mofa_input_frozen.rds",,,1.12,"328f714ddd089a5aa048d8153fff1075",FALSE
+"mofa/mofa_trained_model_frozen.rds",,,0.37,"d9fa2bc0e17f6ec96b55ee5bef995f4d",FALSE
 "random_forest/rf_inputs_frozen.rds",,,1.12,"ab462afc6af16d0209fc43d79430e977",FALSE
 "random_forest/rf_results_submitted.rds",,,0.25,"fce33af7880bb0dff23757430df9dcd4",FALSE

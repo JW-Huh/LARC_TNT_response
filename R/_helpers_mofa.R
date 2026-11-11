@@ -7,6 +7,7 @@
 ##    mofa_cfg                 all tuning constants of the MOFA analysis
 ##    build_mofa_input()       four preprocessed views + sample metadata (script 20)
 ##    train_mofa_grid()        optional refit with MOFA2 (script 20, refit_mofa = TRUE)
+##    align_factor_signs()     orient the factors of a refit like the frozen model
 ##    hedges(), patient_means(), permutation_labels(), fit_mixed(), gls_stat() ...
 ##                             statistics used by analyze_association()
 ##    analyze_association()    factor scores ~ response (script 21)
@@ -143,8 +144,37 @@ train_mofa_grid <- function(values, meta, model_dir) {
                                                                      factor = rep(colnames(ww[[v]]), each = nrow(ww[[v]])), weight = as.vector(ww[[v]]))))
   weights$feature_label <- weights$feature
   variance <- as.data.frame(get_variance_explained(model, as.data.frame = TRUE)$r2_per_factor)
+  for (col in intersect(c("group", "view", "factor"), names(variance))) variance[[col]] <- as.character(variance[[col]])
   variance$r2 <- variance$value / 100
   list(extracted = list(scores = scores, weights = weights, variance = variance), training_log = log, selected_hdf5 = log$path[log$selected])
+}
+
+
+## MOFA factor signs are arbitrary: the same model can come out with a factor
+## and its weights multiplied by -1 (another seed, another input version).
+## After a refit, every factor is oriented like the factor of the same number
+## in `reference` (the model that was frozen before), judged by the correlation
+## of the factor scores over the shared samples.  A factor without a clear
+## counterpart (|r| < min_r) is left as it is - check the printed table then,
+## because the factor numbering may have changed.
+align_factor_signs <- function(model, reference, min_r = 0.8) {
+  s_new <- model$extracted$scores; s_ref <- reference$extracted$scores
+  factors <- intersect(grep("^Factor[0-9]+$", names(s_new), value = TRUE), names(s_ref))
+  rows <- match(s_new$SampleID, s_ref$SampleID)
+  report <- data.frame(factor = factors, r_with_reference = NA_real_, flipped = FALSE)
+  for (i in seq_along(factors)) {
+    f <- factors[i]
+    r <- suppressWarnings(cor(s_new[[f]], s_ref[[f]][rows], use = "pairwise.complete.obs"))
+    report$r_with_reference[i] <- r
+    if (is.finite(r) && r <= -min_r) {
+      model$extracted$scores[[f]] <- -s_new[[f]]
+      w <- model$extracted$weights$factor == f
+      model$extracted$weights$weight[w] <- -model$extracted$weights$weight[w]
+      report$flipped[i] <- TRUE
+    }
+  }
+  model$sign_alignment <- report
+  model
 }
 
 

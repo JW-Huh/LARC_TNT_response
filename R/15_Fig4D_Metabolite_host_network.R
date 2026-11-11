@@ -33,6 +33,16 @@
 ##     up to 24 pCR- and 20 non-pCR-enriched genes; edges added greedily by P
 ##     with at most 8 edges per metabolite and 2 per gene; metabolites with
 ##     fewer than 3 displayed genes dropped (except butyrate).
+##     Histamine is not a display candidate (`not_displayed_metabolites`): it
+##     became quantifiable only in the corrected laboratory report of November
+##     2026 and ends with two displayed genes, i.e. below the three-gene rule,
+##     but as a candidate it takes one of the eight positions and several gene
+##     places, which removes indole acetic acid from the panel.  Leaving it
+##     out of the display keeps the panel as submitted (7 metabolites, 44
+##     genes, 62 edges); its correlations stay in
+##     Fig4D_metabolite_host_correlations.csv.  Set the switch to character(0)
+##     to apply the rules to histamine as well (6 metabolites, 42 genes, 60
+##     edges).
 ##
 ##  R PACKAGES  dplyr, tidyr, stringr, ggplot2, ggnewscale
 ## =============================================================================
@@ -63,6 +73,7 @@ max_genes         <- 44L; max_edges_per_metabolite <- 8L; max_edges_per_gene <- 
 priority_metabolites   <- "butyrate"                  # always displayed
 literature_metabolites <- "lithocholic acid"          # displayed if it has any qualifying edge
 excluded_metabolites   <- "kynurenic acid"
+not_displayed_metabolites <- "histamine"              # <-- left out before the ranking (see header); character(0) = apply the rules
 
 priority_genes <- c("CCR1", "TJP1", "S100A9", "CXCL1", "MARCO", "SIPA1", "BATF3", "LGR5", "GADD45B", "BOK",
                     "RUNX3", "NSD3", "GPR137B", "SART3", paste0("IGFBP", 1:7))
@@ -181,7 +192,8 @@ edges <- pairs %>%
          excluded_gene = Gene %in% excluded_genes | str_detect(Gene, noncoding_regex),
          priority_gene = Gene %in% priority_genes,
          adj_support = is.finite(adj_rho) & sign(adj_rho) == sign(rho) & abs(adj_rho) >= adj_rho_cut & adj_P < adj_p_cut) %>%
-  filter(!excluded_gene, !is.na(Category), priority > 0)             # annotated genes only
+  filter(!excluded_gene, !is.na(Category), priority > 0) %>%         # annotated genes only
+  filter(!Metabolite %in% not_displayed_metabolites)
 
 ## 3a. metabolites
 met_sel <- edges %>%

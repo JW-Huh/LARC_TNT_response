@@ -128,6 +128,19 @@ order_metabolites <- unlist(lapply(classes, function(cl) {
   x <- as.matrix(wide[, -1]); x[!is.finite(x)] <- 0
   wide$Metabolite[if (nrow(x) > 1) hclust(dist(x), method = "ward.D2")$order else 1]
 }))
+## Row order of the submitted panel (the clustering of the first laboratory
+## report).  It is kept while the same metabolites are displayed, so that the
+## corrected panel differs from the submitted one only in the cells that
+## changed; with the corrected values the clustering alone would reorder the
+## bile acids.  Set `keep_submitted_row_order <- FALSE` to use the clustering.
+keep_submitted_row_order <- TRUE                       # <-- display only
+submitted_row_order <- c(
+  "Butyrate", "Acetate", "Propionate", "Isovalerate", "Isobutyrate", "Valerate",
+  "Glycocholic_acid", "Glycolithocholic_acid", "Glycodeoxycholic_acid", "Chenodeoxycholic_acid",
+  "Deoxycholic_acid", "Glycoursodeoxycholic_acid", "Cholic_acid", "Glycochenodeoxycholic_acid",
+  "Indolepropionic_acid", "Kynurenic_acid", "Indole_acetic_acid", "Indole", "Nicotinic_acid",
+  "Tryptophan", "Xanthurenic_acid")
+if (keep_submitted_row_order && setequal(order_metabolites, submitted_row_order)) order_metabolites <- submitted_row_order
 
 
 ## ---- 3. Supplementary Figure 5B ----------------------------------------------------------
@@ -158,6 +171,7 @@ p_circles <- ggplot(sectors) +
   scale_y_continuous(breaks = seq_along(order_metabolites), labels = gsub("_", " ", rev(order_metabolites))) +
   scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B", limits = c(-1, 1), name = "Correlation") +
   scale_colour_manual(values = c("Coordinated trend" = "black", "Single/mixed trend" = "grey65"), name = NULL) +
+  guides(fill = guide_colourbar(order = 1), colour = guide_legend(order = 2)) +      # fixed legend order (as submitted)
   coord_fixed(clip = "off") +
   labs(x = NULL, y = NULL) +
   theme_tnt(base_size = 9, legend = "right") +

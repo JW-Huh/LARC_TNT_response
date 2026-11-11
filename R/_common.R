@@ -268,11 +268,28 @@ taxon_markdown <- function(x) {
 ## ---- 5. Statistics helpers ----------------------------------------------------
 
 ## Two-sided Wilcoxon rank-sum P value for a numeric vector split by group.
-## `exact = NULL` (the default) lets R decide, exactly as the original analyses did;
-## pass exact = FALSE to force the normal approximation.
+## `exact = NULL` (the default) applies the rule under which the submitted
+## results were computed (stats::wilcox.test of R 4.3.2, unchanged up to R 4.5):
+## the exact P value when both groups have fewer than 50 values and there are no
+## ties, otherwise the normal approximation with continuity correction.  The
+## rule is written out here because from R 4.6.0 wilcox.test() returns an exact
+## conditional P value for tied data by default, which shifts tied comparisons
+## slightly (e.g. the Figure 3D inset: 0.028 -> 0.024).  With the rule fixed,
+## every R version gives the same P values.  Pass exact = FALSE to force the
+## normal approximation.
+## The P value is returned with 12 significant digits: tied comparisons then
+## have exactly equal P values in every R version, so that tables ordered by P
+## (and the seeded resampling that follows such an ordering, e.g. Figure 2D)
+## do not depend on floating-point noise in the 16th digit.
 wilcox_p <- function(x, group, exact = NULL) {
   g <- as.character(group)
-  suppressWarnings(wilcox.test(x[g == response_levels[1]], x[g == response_levels[2]], exact = exact)$p.value)
+  a <- x[g == response_levels[1]]; a <- a[!is.na(a)]
+  b <- x[g == response_levels[2]]; b <- b[!is.na(b)]
+  if (is.null(exact)) {
+    r <- rank(c(a, b))
+    exact <- length(a) < 50 && length(b) < 50 && length(r) == length(unique(r))
+  }
+  signif(suppressWarnings(wilcox.test(a, b, exact = exact)$p.value), 12)
 }
 
 ## Significance stars
